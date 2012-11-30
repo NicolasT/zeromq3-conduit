@@ -1,1 +1,7 @@
 language: haskell
+
+before_install:
+ - echo "yes" | sudo add-apt-repository ppa:saltstack/salt-depends
+ - sudo apt-get update
+ - sudo apt-get remove zeromq
+ - sudo apt-get -y install libzmq3-dev
