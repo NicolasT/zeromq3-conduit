@@ -1,0 +1,35 @@
+Name:                zeromq3-conduit
+Version:             0.1.0.0
+Synopsis:            Conduit bindings for zeromq3-haskell
+-- Description:         
+Author:              Nicolas Trangez
+Maintainer:          ikke@nicolast.be
+Homepage:            https://github.com/NicolasT/zeromq3-conduit
+
+License:             LGPL-2.1
+License-File:        LICENSE
+Copyright:           Copyright (c) 2012, Nicolas Trangez
+
+Category:            Network
+
+Build-Type:          Simple
+Cabal-Version:       >=1.8
+
+Source-Repository head
+  Type:              git
+  Location:          git://github.com/NicolasT/zeromq3-conduit.git
+
+library
+  Exposed-Modules:     Data.Conduit.ZMQ3
+                       System.ZMQ3.Monad
+  Hs-Source-Dirs:      src
+  Build-Depends:       base >= 4 && < 5,
+                       lifted-base,
+                       mtl,
+                       transformers,
+                       monad-control,
+                       resourcet,
+                       bytestring,
+                       conduit,
+                       zeromq3-haskell
+  Ghc-Options:         -Wall -fwarn-incomplete-patterns -O3
