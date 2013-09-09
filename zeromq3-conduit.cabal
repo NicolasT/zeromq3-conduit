@@ -31,5 +31,6 @@ library
                        resourcet,
                        bytestring,
                        conduit,
+                       semigroups,
                        zeromq3-haskell
   Ghc-Options:         -Wall -fwarn-incomplete-patterns -O3
