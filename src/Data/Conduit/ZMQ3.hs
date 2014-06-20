@@ -37,6 +37,7 @@ module Data.Conduit.ZMQ3 (
 import Control.Monad.Trans (lift)
 import Control.Monad.IO.Class (MonadIO)
 
+import Data.List.NonEmpty (NonEmpty)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
 
@@ -46,7 +47,7 @@ import qualified System.ZMQ3 as ZMQ (Receiver, Sender, Socket)
 import qualified System.ZMQ3.Monad as ZMQ
 
 -- Sources
-zmqSourceGeneric :: Monad m => (s -> m a) -> s -> GSource m a
+zmqSourceGeneric :: Monad m => (s -> m a) -> s -> Source m a
 zmqSourceGeneric f s = loop
   where
     loop = lift (f s) >>= yield >> loop
@@ -54,15 +55,15 @@ zmqSourceGeneric f s = loop
 {-# INLINE zmqSourceGeneric #-}
 
 -- | Turn a 'ZMQ.Socket' into a 'Source', using 'ZMQ.receive'
-zmqSource :: (MonadIO m, ZMQ.Receiver s) => ZMQ.Socket s -> GSource m BS.ByteString
+zmqSource :: (MonadIO m, ZMQ.Receiver s) => ZMQ.Socket s -> Source m BS.ByteString
 zmqSource = zmqSourceGeneric ZMQ.receive
 -- | Turn a 'ZMQ.Socket' into a 'Source', using 'ZMQ.receiveMulti'
-zmqSourceMulti :: (MonadIO m, ZMQ.Receiver s) => ZMQ.Socket s -> GSource m [BS.ByteString]
+zmqSourceMulti :: (MonadIO m, ZMQ.Receiver s) => ZMQ.Socket s -> Source m [BS.ByteString]
 zmqSourceMulti = zmqSourceGeneric ZMQ.receiveMulti
 
 
 -- Sinks
-zmqSinkGeneric :: Monad m => (a -> m ()) -> GSink a m ()
+zmqSinkGeneric :: Monad m => (a -> m ()) -> Sink a m ()
 zmqSinkGeneric f = loop
   where
     loop = await >>= maybe (return ()) (\v -> lift (f v) >> loop)
@@ -72,14 +73,14 @@ zmqSinkGeneric f = loop
 -- | Turn a 'ZMQ.Socket' into a 'Sink', using 'ZMQ.send'
 zmqSink :: (MonadIO m, ZMQ.Sender s) => ZMQ.Socket s
                                      -> [ZMQ.Flag]
-                                     -> GSink BS.ByteString m ()
+                                     -> Sink BS.ByteString m ()
 zmqSink sock flags = zmqSinkGeneric $ ZMQ.send sock flags
 -- | Turn a 'ZMQ.Socket' into a 'Sink', using 'ZMQ.send''
 zmqSinkLazy :: (MonadIO m, ZMQ.Sender s) => ZMQ.Socket s
                                          -> [ZMQ.Flag]
-                                         -> GSink LBS.ByteString m ()
+                                         -> Sink LBS.ByteString m ()
 zmqSinkLazy sock flags = zmqSinkGeneric $ ZMQ.send' sock flags
 -- | Turn a 'ZMQ.Socket' into a 'Sink', using 'ZMQ.sendMulti'
 zmqSinkMulti :: (MonadIO m, ZMQ.Sender s) => ZMQ.Socket s
-                                          -> GSink [BS.ByteString] m ()
+                                          -> Sink (NonEmpty BS.ByteString) m ()
 zmqSinkMulti = zmqSinkGeneric . ZMQ.sendMulti

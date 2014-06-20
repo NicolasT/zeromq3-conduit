@@ -17,7 +17,11 @@
  - Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  -}
 
-{-# LANGUAGE CPP, FlexibleContexts, GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 -- | A monad to ease working with "System.ZMQ3", hiding the 'Context'
 -- object in a 'ReaderT' environment.
@@ -75,6 +79,10 @@ import Control.Monad.Trans (MonadTrans)
 import Control.Monad.Trans.Control (MonadBaseControl)
 import Control.Monad.Trans.Resource (MonadThrow, MonadResource, allocate)
 
+import Control.Monad.Base (MonadBase)
+
+import Data.List.NonEmpty (NonEmpty)
+
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
 
@@ -89,21 +97,26 @@ import Control.Monad (forever)
 
 -- | 'ZMQ' is a 'ReaderT' exposing a 'Context' in its environment
 newtype ZMQ m a = ZMQ { unZMQ :: ReaderT ZMQ.Context m a }
-  deriving (Functor, Applicative, Monad, MonadIO, MonadReader ZMQ.Context, MonadThrow, MonadTrans, MonadResource)
+  deriving (Functor, Applicative, Monad, MonadIO, MonadReader ZMQ.Context, MonadThrow, MonadTrans)
+
+deriving instance MonadBase IO m => MonadBase IO (ZMQ m)
+deriving instance MonadResource m => MonadResource (ZMQ m)
 
 -- | Run a 'ZMQ' action
 --
 -- This action will create a 'ZMQ.Context' and execute the given action while
 -- providing this context.
 -- The context will be terminated once the action has finished.
-runZMQ :: (MonadIO m, MonadBaseControl IO m) => Size -- ^ 'ioThreads' argument passed to 'ZMQ.init'
+runZMQ :: (MonadIO m, MonadBaseControl IO m) => Size -- ^ Number of 'ioThreads' to use
                                              -> ZMQ m a -- ^ Action to execute
                                              -> m a
 runZMQ ioThreads act =
     bracket
-        (liftIO $ ZMQ.init ioThreads)
-        (liftIO . ZMQ.term)
-        (runReaderT $ unZMQ act)
+        (liftIO ZMQ.context)
+        (liftIO . ZMQ.destroy)
+        (\ctx -> do
+            liftIO $ ZMQ.setIoThreads ioThreads ctx
+            runReaderT (unZMQ act) ctx)
 
 -- | Retrieve the context provided in the current environment
 getContext :: Monad m => ZMQ m ZMQ.Context
@@ -138,7 +151,7 @@ send' :: (MonadIO m, ZMQ.Sender s) => ZMQ.Socket s -> [Flag] -> LBS.ByteString -
 send' sock flags dat = liftIO $ ZMQ.send' sock flags dat
 {-# INLINE send' #-}
 -- | Lifted version of 'ZMQ.sendMulti'
-sendMulti :: (MonadIO m, ZMQ.Sender s) => ZMQ.Socket s -> [BS.ByteString] -> m ()
+sendMulti :: (MonadIO m, ZMQ.Sender s) => ZMQ.Socket s -> NonEmpty BS.ByteString -> m ()
 sendMulti sock dat = liftIO $ ZMQ.sendMulti sock dat
 {-# INLINE sendMulti #-}
 
@@ -152,11 +165,11 @@ receiveMulti = liftIO . ZMQ.receiveMulti
 {-# INLINE receiveMulti #-}
 
 -- | Lifted version of 'ZMQ.subscribe'
-subscribe :: (MonadIO m, ZMQ.Subscriber s) => ZMQ.Socket s -> String -> m ()
+subscribe :: (MonadIO m, ZMQ.Subscriber s) => ZMQ.Socket s -> BS.ByteString -> m ()
 subscribe sock name = liftIO $ ZMQ.subscribe sock name
 {-# INLINE subscribe #-}
 -- | Lifted version of 'ZMQ.unsubscribe'
-unsubscribe :: (MonadIO m, ZMQ.Subscriber s) => ZMQ.Socket s -> String -> m ()
+unsubscribe :: (MonadIO m, ZMQ.Subscriber s) => ZMQ.Socket s -> BS.ByteString -> m ()
 unsubscribe sock name = liftIO $ ZMQ.unsubscribe sock name
 {-# INLINE unsubscribe #-}
 
