@@ -27,6 +27,7 @@ library
                        lifted-base,
                        mtl,
                        transformers,
+                       transformers-base,
                        monad-control,
                        resourcet,
                        bytestring,
